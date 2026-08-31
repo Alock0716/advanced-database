@@ -125,4 +125,22 @@ cursor = connection.execute("select * from pet")
 rows = cursor.fetchall()
 pprint(rows)
 
+for name in  ['Cinder', 'Camy', 'Scooby', 'Cooper', 'Rachel']:
+    connection.execute(
+        "insert into pet (name, kind, age, food) values (?, ?, ?, ?)",
+        (name, "Dog", 14, "Kibble"),
+    )
+
+for name in  ['JJ', 'Labush', 'Boots', 'Socks', 'Shadow']:
+    connection.execute(
+        "insert into pet (name, kind, age, food) values (?, ?, ?, ?)",
+        (name, "Cat", 8, "Kibble"),
+    )
+
+cursor = connection.execute("select * from pet")
+rows = cursor.fetchall()
+pprint(rows)
+
+connection.commit()
+
 print("done.")
