@@ -9,17 +9,14 @@ print("succeeded in making connection.")
 
 app = Flask(__name__)
 
-@app.route("/", methods=["GET"])
+
 @app.route("/hello", methods=["GET"])
 @app.route("/hello/<name>", methods=["GET"])
 def get_hello(name="world"):
     # return f"<html><h1>Hello, {name}!<html>"
     return render_template("hello.html", name=name)
 
-@app.route("/bye", methods=["GET"])
-def get_bye():
-    return "Bye!"
-
+@app.route("/", methods=["GET"])
 @app.route("/pets", methods=["GET"])
 def get_pets():
 #    list = ["alpha","beta","gamma"]
