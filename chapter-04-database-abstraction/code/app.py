@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for
 
-import database
+import json_database_layer as database
 
 app = Flask(__name__)
 database.setup_database("pets.db")

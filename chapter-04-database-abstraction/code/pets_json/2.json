@@ -1,0 +1,8 @@
+{
+  "name": "betty",
+  "age": 2,
+  "type": "Dog",
+  "food": "kibble",
+  "owner": "Kane",
+  "id": 2
+}
