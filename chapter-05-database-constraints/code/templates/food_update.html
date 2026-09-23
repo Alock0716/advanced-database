@@ -1,0 +1,20 @@
+<html>
+
+<head></head>
+
+<body>
+    This is the food update template.
+    <form action="/food/update/{{data['id']}}" method="post">
+        <hr />
+        <p>Name:<input name="FoodName" value="{{data['FoodName']}}" /></p>
+        <p>Price:<input name="Price" value="{{data['Price']}}" /></p>
+        <p>WeightInOz:<input name="WeightInOz" value="{{data['WeightInOz']}}" /></p>
+        <p>FoodType:<input name="FoodType" value="{{data['FoodType']}}" /></p>
+        <hr />
+        <button type="submit">Update</button>
+        <a href="/food">Cancel</a>
+        <hr />
+    </form>
+</body>
+
+</html>

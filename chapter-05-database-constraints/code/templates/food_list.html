@@ -1,0 +1,34 @@
+<html>
+{% if error %}
+<div style="color:red; font-weight: bold;">
+    {{ error }}
+</div>
+<hr />
+{% endif %}
+<h3>Foods:</h3>
+<table>
+    <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Price</th>
+        <th>WeightInOz</th>
+        <th>Type</th>
+    </tr>
+    {% for food in foods %}
+    <tr>
+        <td>{{ food['id'] }}</td>
+        <td>{{ food['FoodName'] }}</td>
+        <td>{{ food['Price'] }}</td>
+        <td>{{ food['WeightInOz'] }}</td>
+        <td>{{ food['FoodType'] }}</td>
+        <td><a href="/food/delete/{{food['id']}}">Delete</a></td>
+        <td><a href="/food/update/{{food['id']}}">Update</a></td>
+    </tr>
+    {% endfor %}
+</table>
+<hr />
+<a href="/food/create">Create New food</a>
+<hr />
+<a href="/list">Back to Pets</a>
+
+</html>

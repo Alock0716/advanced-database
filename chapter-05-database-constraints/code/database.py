@@ -41,6 +41,12 @@ def get_owners():
     owners = [dict(owner) for owner in cursor.fetchall()]
     return owners
 
+def get_foods():
+    cursor = connection.cursor()
+    cursor.execute("""select * from Foods""")
+    foods = [dict(food) for food in cursor.fetchall()]
+    return foods
+
 
 def get_owner(id):
     id = int(id)
@@ -52,11 +58,30 @@ def get_owner(id):
     assert len(owners) == 1
     return owners[0]
 
+def get_food(id):
+    id = int(id)
+    cursor = connection.cursor()
+    cursor.execute("select * from Foods where id = ?", (id,))
+    foods = [dict(row) for row in cursor.fetchall()]
+    if len(foods) == 0:
+        return None
+    assert len(foods) == 1
+    return foods[0]
+
 def create_owner(data):
     cursor = connection.cursor()
     cursor.execute(
         """insert into owner(name, city, type_of_home) values (?,?,?)""",
         (data["name"], data.get("city"), data.get("type_of_home")),
+    )
+    connection.commit()
+    return cursor.lastrowid
+
+def create_food(data):
+    cursor = connection.cursor()
+    cursor.execute(
+        """insert into Foods(FoodName, Price, WeightInOz, FoodType) values (?,?,?,?)""",
+        (data["FoodName"], data.get("Price"), data.get("WeightInOz"), data.get("FoodType")),
     )
     connection.commit()
     return cursor.lastrowid
@@ -67,6 +92,12 @@ def delete_owner(id):
     cursor.execute("""delete from owner where id = ?""", (id,))
     connection.commit()
 
+def delete_food(id):
+    id = int(id)
+    cursor = connection.cursor()
+    cursor.execute("""delete from Foods where id = ?""", (id,))
+    connection.commit()
+
 def update_owner(id, data):
     cursor = connection.cursor()
     cursor.execute(
@@ -75,6 +106,13 @@ def update_owner(id, data):
     )
     connection.commit()
 
+def update_food(id, data):
+    cursor = connection.cursor()
+    cursor.execute(
+        """update Foods set FoodName=?, Price=?, WeightInOz=?, FoodType=? where id=?""",
+        (data["FoodName"], data.get("Price"), data.get("WeightInOz"), data.get("FoodType"), id),
+    )
+    connection.commit()
 
 def get_pets():
     cursor = connection.cursor()
@@ -140,20 +178,29 @@ def setup_database(database_file="pets.db"):
     )
     cursor.execute(
         """
+        create table if not exists Foods (
+            id integer primary key autoincrement,
+            FoodName text not null,
+            Price int not null,
+            WeightInOz int not null,
+            FoodType text not null
+        )
+        """
+    )
+    cursor.execute(
+        """
         create table if not exists pet (
             id integer primary key autoincrement,
             name text not null,
             type text not null,
             age integer,
-            food text,
+            food_id integer not null,
             owner_id integer not null,
+            foreign key (food_id) references Food(id) on delete restrict,
             foreign key (owner_id) references owner(id) on delete restrict
         )
         """
     )
-    columns = {row["name"] for row in connection.execute("pragma table_info(pet)")}
-    if "food" not in columns:
-        connection.execute("alter table pet add column food text")
     connection.commit()
 
 
@@ -176,11 +223,20 @@ def setup_test_database(db_file="test_pets.db"):
         owner_id = create_owner(owner)
         owner_ids[owner["name"]] = owner_id
 
+    foods = [
+    {"FoodName": "Kibble", "Price": 20, "WeightInOz": 32, "FoodType": "Dry"},
+    {"FoodName": "Canned Food", "Price": 30, "WeightInOz": 24, "FoodType": "Wet"},
+    ]
+    food_ids = {}
+    for food in foods:
+        food_id = create_food(food)
+        food_ids[food["FoodName"]] = food_id
+
     pets = [
-        {"name": "dorothy", "type": "dog", "age": 9, "owner": "greg"},
-        {"name": "suzy", "type": "mouse", "age": 9, "owner": "greg"},
-        {"name": "casey", "type": "dog", "age": 9, "owner": "greg"},
-        {"name": "heidi", "type": "cat", "age": 15, "owner": "david"},
+        {"name": "dorothy", "type": "dog", "age": 9, "owner": "greg", "food": "Kibble"},
+        {"name": "suzy", "type": "mouse", "age": 9, "owner": "greg", "food": "Kibble"},
+        {"name": "casey", "type": "dog", "age": 9, "owner": "greg", "food": "Kibble"},
+        {"name": "heidi", "type": "cat", "age": 15, "owner": "david", "food": "Canned Food"},
     ]
     for pet in pets:
         pet["owner_id"] = owner_ids[pet["owner"]]
@@ -189,13 +245,13 @@ def setup_test_database(db_file="test_pets.db"):
                 "name": pet["name"],
                 "age": pet["age"],
                 "type": pet["type"],
-                "food": "pet food",
+                "food": pet["food_id"],
                 "owner_id": pet["owner_id"],
             }
         )
 
     assert len(get_pets()) == 4
-    return owner_ids
+    return owner_ids, food_ids
 
 def test_constraints_are_active():
     fk = connection.execute("PRAGMA foreign_keys").fetchone()[0]
