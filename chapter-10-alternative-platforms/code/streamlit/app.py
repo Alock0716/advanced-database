@@ -4,12 +4,11 @@ import database
 
 st.set_page_config(page_title="Pets", layout="wide")
 database.initialize()
-st.title("Pets and Owners")
+st.title("Pets")
 
 # Carry a success message across the rerun that refreshes the tables.
 if "notice" in st.session_state:
     st.success(st.session_state.pop("notice"))
-
 
 def save(operation, message):
     """Report a data error, or refresh the page after a successful write."""
@@ -24,19 +23,28 @@ def save(operation, message):
         st.session_state["notice"] = message
         st.rerun()
 
-
 def pet_form(pet=None):
     owners = database.get_owners()
+    foods = database.get_foods()
     if not owners:
-        st.info("Add an owner before adding a pet.")
-        return
-    pet = pet or {"name": "", "age": 0, "type": "", "food": "",
+            st.info("Add an owner before adding a pet.")
+            return
+    if not foods:
+            st.info("Add a food before adding a pet.")
+            return
+    pet = pet or {"name": "", "age": 0, "type": "", "food_id": foods[0]["id"],
                   "owner_id": owners[0]["id"]}
     owner_names = {owner["id"]: owner["name"] for owner in owners}
     owner_ids = list(owner_names)
-    current = pet["owner_id"]
-    if current not in owner_ids:
+    food_names = {food["id"]: food["name"] for food in foods}
+    food_ids = list(food_names)
+    current_owner = pet["owner_id"]
+    if current_owner not in owner_ids:
         st.warning("The owner list changed. Refresh the page.")
+        return
+    current_food = pet["food_id"]
+    if current_food not in food_ids:
+        st.warning("The food list changed. Refresh the page.")
         return
     # Including the record id keeps one pet's widget state separate from another's.
     prefix = "pet_" + str(pet.get("id", "new"))
@@ -45,18 +53,19 @@ def pet_form(pet=None):
         age = st.number_input("Age", min_value=0, value=pet["age"], step=1,
                               key=prefix + "_age")
         kind = st.text_input("Type", value=pet["type"], key=prefix + "_type")
-        food = st.text_input("Food", value=pet["food"] or "", key=prefix + "_food")
-        owner_id = st.selectbox("Owner", owner_ids, index=owner_ids.index(current),
+        food_id = st.selectbox("Food", food_ids, index=food_ids.index(current_food),
+                                       format_func=lambda id: food_names[id] + " (#" + str(id) + ")",
+                                       key=prefix + "_food")
+        owner_id = st.selectbox("Owner", owner_ids, index=owner_ids.index(current_owner),
                                format_func=lambda id: owner_names[id] + " (#" + str(id) + ")",
                                key=prefix + "_owner")
         submitted = st.form_submit_button("Save pet")
     if submitted:
-        data = {"name": name, "age": age, "type": kind, "food": food, "owner_id": owner_id}
+        data = {"name": name, "age": age, "type": kind, "food_id": food_id, "owner_id": owner_id}
         if "id" in pet:
             save(lambda: database.update_pet(pet["id"], data), "Pet updated.")
         else:
             save(lambda: database.create_pet(data), "Pet added.")
-
 
 def owner_form(owner=None):
     owner = owner or {"name": "", "city": "", "type_of_home": ""}
@@ -74,10 +83,27 @@ def owner_form(owner=None):
         else:
             save(lambda: database.create_owner(data), "Owner added.")
 
+def food_form(food=None):
+    food = food or {"name": "", "type": ""}
+    prefix = "food_" + str(food.get("id", "new"))
+    with st.form(prefix):
+        name = st.text_input("food name", value=food["name"], key=prefix + "_name")
+        type = st.text_input("Type", value=food["type"] or "",
+                             key=prefix + "_type")
+        submitted = st.form_submit_button("Save food")
+    if submitted:
+        data = {"name": name, "type": type}
+        if "id" in food:
+            save(lambda: database.update_food(food["id"], data), "food updated.")
+        else:
+            save(lambda: database.create_food(data), "food added.")
 
-page = st.sidebar.radio("Manage", ["Pets", "Owners"])
+page = st.sidebar.radio("Manage", ["Pets", "Owners", "Foods"])
 action = st.sidebar.radio("Action", ["List", "Add", "Edit", "Delete"])
-records = database.get_pets() if page == "Pets" else database.get_owners()
+if page == "Pets": records = database.get_pets()
+elif page == "Owners": records = database.get_owners()
+else: records = database.get_foods()
+
 st.header(page)
 if records:
     st.dataframe(records, hide_index=True, width="stretch")
@@ -85,7 +111,11 @@ else:
     st.info("No records yet.")
 
 if action == "Add":
-    pet_form() if page == "Pets" else owner_form()
+    if page == "Pets":
+        pet_form() 
+    elif page == "Owners": 
+        owner_form()
+    else: food_form()
 elif action in ("Edit", "Delete"):
     if records:
         choices = {record["id"]: record for record in records}
@@ -94,13 +124,17 @@ elif action in ("Edit", "Delete"):
                                 key=page + "_selected")
         record = choices[selected]
         if action == "Edit":
-            pet_form(record) if page == "Pets" else owner_form(record)
+            if page == "Pets": pet_form(record) 
+            elif page=="Foods": food_form(record) 
+            else: owner_form(record)
         else:
             # Confirmation belongs to the selected record, not the entire page.
             confirmed = st.checkbox("Confirm deletion of " + record["name"],
                                     key=page + "_delete_" + str(selected))
             if st.button("Delete record", disabled=not confirmed):
-                operation = database.delete_pet if page == "Pets" else database.delete_owner
+                if page == "Pets": operation = database.delete_pet 
+                elif page=="Foods": operation = database.delete_food 
+                else: operation = database.delete_owner
                 save(lambda: operation(selected), "Record deleted.")
     else:
         st.info("Add a record first.")
