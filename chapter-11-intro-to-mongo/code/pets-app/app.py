@@ -18,6 +18,9 @@ def error_page(message, status=400):
 @app.route("/list", methods=["GET"])
 def get_list():
     pets = database.get_pets()
+    for pet in pets:
+        pet['owner'] = database.get_owner(pet['owner_id'])['name']
+        pet['food'] = database.get_food(pet['food_id'])['name']
     return render_template("list.html", pets=pets)
 
 

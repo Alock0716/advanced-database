@@ -6,8 +6,8 @@
       <th>Name</th>
       <th>Type</th>
       <th>Age</th>
-      <th>Owner ID</th>
-      <th>Food ID</th>
+      <th>Owner</th>
+      <th>Food</th>
     </tr>
     {% for pet in pets %}
       <tr>
@@ -15,8 +15,8 @@
         <td>{{ pet['name'] }}</td>
         <td>{{ pet['type'] }}</td>
         <td>{{ pet['age'] }}</td>
-        <td>{{ pet['owner_id'] }}</td>
-        <td>{{ pet['food_id'] }}</td>
+        <td>{{ pet['owner'] }}</td>
+        <td>{{ pet['food'] }}</td>
         <td><a href="/delete/{{pet['id']}}">Delete</a></td>
         <td><a href="/update/{{pet['id']}}">Update</a></td>
       </tr>
