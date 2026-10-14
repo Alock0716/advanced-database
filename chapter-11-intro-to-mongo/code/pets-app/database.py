@@ -26,6 +26,7 @@ client = None
 db = None
 owners_collection = None
 pets_collection = None
+foods_collection = None
 
 
 class NotFoundError(LookupError):
@@ -37,7 +38,7 @@ class ConstraintError(ValueError):
 
 
 def initialize(database_name="pets", client_factory=MongitaClientDisk, data_dir=None):
-    global client, db, owners_collection, pets_collection
+    global client, db, owners_collection, pets_collection, foods_collection
 
     if client_factory is MongitaClientMemory and MongitaClientMemory is None:
         if pytest is not None:
@@ -55,6 +56,7 @@ def initialize(database_name="pets", client_factory=MongitaClientDisk, data_dir=
     db = client[database_name]
     owners_collection = db.owners
     pets_collection = db.pets
+    foods_collection = db.foods
 
 
 def test_initialize_sets_globals():
@@ -77,6 +79,7 @@ def setup_database(database_name="pets", client_factory=MongitaClientDisk, data_
     initialize(database_name, client_factory=client_factory, data_dir=data_dir)
     owners_collection.count_documents({})
     pets_collection.count_documents({})
+    foods_collection.count_documents({})
 
 
 def test_setup_database_creates_collections():
@@ -89,7 +92,7 @@ def test_setup_database_creates_collections():
 
 
 def close_connection():
-    global client, db, owners_collection, pets_collection
+    global client, db, owners_collection, pets_collection, foods_collection
 
     if client is not None:
         try:
@@ -100,6 +103,7 @@ def close_connection():
     db = None
     owners_collection = None
     pets_collection = None
+    foods_collection = None
 
 
 def test_close_connection_resets_globals():
@@ -162,16 +166,59 @@ def _require_existing_owner(id):
     return object_id, owner
 
 
+def _normalize_price(value):
+    try:
+        price = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Price must be a number.") from exc
+    if price < 0:
+        raise ValueError("Price must be non-negative.")
+    return round(price, 2)
+
+
+def _normalize_food_data(data):
+    return {
+        "name": _require_text(data.get("name"), "name"),
+        "type": _require_text(data.get("type"), "type"),
+        "price": _normalize_price(data.get("price")),
+    }
+
+
+def _require_food(food_id):
+    object_id = _to_object_id(food_id, "food_id")
+    if foods_collection.find_one({"_id": object_id}) is None:
+        raise ConstraintError("food_id does not reference an existing food.")
+    return object_id
+
+
+def _require_existing_food(id):
+    object_id = _to_object_id(id, "food id")
+    food = foods_collection.find_one({"_id": object_id})
+    if food is None:
+        raise NotFoundError("food not found.")
+    return object_id, food
+
+
 def _normalize_pet_data(data):
     owner_id = data.get("owner_id")
     if (owner_id or "").strip() == "":
         raise ValueError("owner_id is required.")
+
+    food_id = data.get("food_id")
+    # Existing examples/tests may omit food_id; use the first available food.
+    # The web forms always submit an explicit food selection.
+    if not (food_id or "").strip():
+        first_food = foods_collection.find_one({})
+        if first_food is None:
+            raise ValueError("food_id is required.")
+        food_id = str(first_food["_id"])
 
     return {
         "name": _require_text(data.get("name"), "name"),
         "type": _require_text(data.get("type"), "type"),
         "age": _normalize_age(data.get("age")),
         "owner_id": _require_owner(owner_id),
+        "food_id": _require_food(food_id),
     }
 
 
@@ -191,6 +238,7 @@ def pet_to_dict(pet):
         "type": pet["type"],
         "age": pet["age"],
         "owner_id": str(pet["owner_id"]),
+        "food_id": str(pet["food_id"]),
     }
 
 
@@ -219,6 +267,15 @@ def owner_to_dict(owner):
     }
 
 
+def food_to_dict(food):
+    return {
+        "id": str(food["_id"]),
+        "name": food["name"],
+        "type": food["type"],
+        "price": food["price"],
+    }
+
+
 def test_owner_to_dict():
     sample = {
         "_id": ObjectId("67d8c61b5180a31695e90746"),
@@ -238,6 +295,13 @@ def _seed_test_database(database_name="pytest_seed"):
 
     owners_collection.delete_many({})
     pets_collection.delete_many({})
+
+    foods_collection.delete_many({})
+    for food in [
+        {"name": "Kibble", "type": "Dry", "price": 12.99},
+        {"name": "Wet Food", "type": "Canned", "price": 2.49},
+    ]:
+        create_food(food)
 
     owners = [
         {"name": "greg", "city": "Portland", "type_of_home": "condo"},
@@ -552,6 +616,35 @@ def test_delete_missing_owner_raises_not_found():
     _seed_test_database()
     with pytest.raises(NotFoundError, match="owner not found"):
         delete_owner("000000000000000000000000")
+
+
+def get_foods():
+    return [food_to_dict(food) for food in foods_collection.find()]
+
+
+def get_food(id):
+    object_id = _to_object_id(id, "food id")
+    food = foods_collection.find_one({"_id": object_id})
+    return None if food is None else food_to_dict(food)
+
+
+def create_food(data):
+    food = _normalize_food_data(data)
+    result = foods_collection.insert_one(food)
+    return str(result.inserted_id)
+
+
+def update_food(id, data):
+    object_id, _ = _require_existing_food(id)
+    foods_collection.update_one({"_id": object_id}, {"$set": _normalize_food_data(data)})
+
+
+def delete_food(id):
+    object_id, _ = _require_existing_food(id)
+    pet = pets_collection.find_one({"food_id": object_id})
+    if pet is not None:
+        raise ConstraintError("Cannot delete this food because pets reference it. Update or delete those pets first.")
+    foods_collection.delete_one({"_id": object_id})
 
 
 if __name__ == "__main__":

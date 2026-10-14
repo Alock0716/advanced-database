@@ -1,0 +1,25 @@
+<html>
+  <h3>Foods:</h3>
+  <table>
+    <tr>
+      <th>ID</th>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Price</th>
+    </tr>
+    {% for food in foods %}
+        <tr>
+            <td>{{ food['id'] }}</td>
+            <td>{{ food['name'] }}</td>
+            <td>{{ food['type'] }}</td>
+            <td>{{ '%.2f'|format(food['price']) }}</td>
+            <td><a href="/food/delete/{{food['id']}}">Delete</a></td>
+            <td><a href="/food/update/{{food['id']}}">Update</a></td>
+        </tr>
+    {% endfor %}
+  </table>
+  <hr />
+  <a href="/food/create">Create New Food</a>
+  <hr />
+  <a href="/list">Back to Pets</a>
+</html>

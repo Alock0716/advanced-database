@@ -24,7 +24,8 @@ def get_list():
 @app.route("/create", methods=["GET"])
 def get_create():
     owners = database.get_owners()
-    return render_template("create.html", owners=owners)
+    foods = database.get_foods()
+    return render_template("create.html", owners=owners, foods=foods)
 
 
 @app.route("/create", methods=["POST"])
@@ -59,7 +60,8 @@ def get_update(id):
         if data is None:
             return error_page("Error: pet not found.", 404)
         owners = database.get_owners()
-        return render_template("update.html", data=data, owners=owners)
+        foods = database.get_foods()
+        return render_template("update.html", data=data, owners=owners, foods=foods)
     except ValueError as e:
         return error_page(f"Error: {e}", 400)
     except Exception as e:
@@ -145,11 +147,72 @@ def post_owner_update(id):
         return error_page(f"Unexpected error updating owner: {e}", 500)
 
 
+@app.route("/foods", methods=["GET"])
+def get_foods_list():
+    return render_template("food_list.html", foods=database.get_foods())
+
+
+@app.route("/food/create", methods=["GET"])
+def get_food_create():
+    return render_template("food_create.html")
+
+
+@app.route("/food/create", methods=["POST"])
+def post_food_create():
+    try:
+        database.create_food(dict(request.form))
+        return redirect(url_for("get_foods_list"))
+    except ValueError as e:
+        return error_page(f"Error: {e}", 400)
+    except Exception as e:
+        return error_page(f"Unexpected error creating food: {e}", 500)
+
+
+@app.route("/food/delete/<id>", methods=["GET"])
+def get_food_delete(id):
+    try:
+        database.delete_food(id)
+        return redirect(url_for("get_foods_list"))
+    except ValueError as e:
+        return error_page(f"Error: {e}", 400)
+    except database.NotFoundError as e:
+        return error_page(f"Error: {e}", 404)
+    except database.ConstraintError as e:
+        return error_page(f"Error: {e}", 400)
+    except Exception as e:
+        return error_page(f"Unexpected error deleting food: {e}", 500)
+
+
+@app.route("/food/update/<id>", methods=["GET"])
+def get_food_update(id):
+    try:
+        data = database.get_food(id)
+        if data is None:
+            return error_page("Error: food not found.", 404)
+        return render_template("food_update.html", data=data)
+    except ValueError as e:
+        return error_page(f"Error: {e}", 400)
+
+
+@app.route("/food/update/<id>", methods=["POST"])
+def post_food_update(id):
+    try:
+        database.update_food(id, dict(request.form))
+        return redirect(url_for("get_foods_list"))
+    except ValueError as e:
+        return error_page(f"Error: {e}", 400)
+    except database.NotFoundError as e:
+        return error_page(f"Error: {e}", 404)
+    except Exception as e:
+        return error_page(f"Unexpected error updating food: {e}", 500)
+
+
 @app.route("/health", methods=["GET"])
 def health():
     try:
         database.get_pets()
         database.get_owners()
+        database.get_foods()
         return error_page("ok", 200)
     except Exception as e:
         return error_page(f"Error checking health: {e}", 500)
