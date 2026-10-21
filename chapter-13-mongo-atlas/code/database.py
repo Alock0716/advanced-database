@@ -8,6 +8,7 @@ import os
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
 from bson.errors import InvalidId
+from dotenv import load_dotenv
 
 from bson.objectid import ObjectId
 
@@ -26,6 +27,7 @@ db = None
 owners_collection = None
 pets_collection = None
 
+load_dotenv('.env')
 
 class NotFoundError(LookupError):
     pass
@@ -40,7 +42,7 @@ def initialize(database_name="pets", client_factory=None):
 
     close_connection()
     if client_factory is None:
-        uri = os.environ.get("MONGODB_URI")
+        uri = os.getenv("MONGODB_URI")
         if not uri:
             raise RuntimeError("Set MONGODB_URI before starting the application.")
         client = MongoClient(
